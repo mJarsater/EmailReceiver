@@ -1,40 +1,98 @@
 import com.sun.mail.pop3.POP3Store;
+import org.apache.commons.lang3.ArrayUtils;
 
 import javax.mail.*;
+import javax.mail.internet.MimeMultipart;
 import javax.swing.*;
+import javax.swing.plaf.TextUI;
+import javax.swing.text.JTextComponent;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.io.IOException;
+import java.util.Collections;
 import java.util.Properties;
+import java.util.Arrays;
+
 
 public class EmailReceiver extends JFrame {
     private JTextArea textArea;
+    private JScrollPane scrollPane;
+    private JLabel usernameLabel, passwordLabel, unreadLabel,totalCountLabel;
     private JButton refreshBtn;
-
+    private JTextField usernameField;
+    private JPasswordField passwordField;
+    private String username, password;
 
     public EmailReceiver(){
         this.setTitle("Email Recevier");
         textArea = new JTextArea();
         refreshBtn = new JButton("Refresh");
+        usernameField = new JTextField();
+        passwordField = new JPasswordField();
+        usernameLabel = new JLabel("Username");
+        passwordLabel = new JLabel("Password");
+        unreadLabel = new JLabel("Unread messeges: -");
+        totalCountLabel = new JLabel("Total amount of emails: -");
+
+        usernameLabel.setBounds(10,10,70,20);
+        usernameField.setBounds(100, 10, 100, 20);
+        passwordLabel.setBounds(10,40,70,20);
+        passwordField.setBounds(100, 40, 100, 20);
+        unreadLabel.setBounds(10, 70,200,20);
+        totalCountLabel.setBounds(200, 70,200,20);
+        refreshBtn.setBounds(300, 20, 100, 30);
 
 
-
-        refreshBtn.setBounds(100, 20, 100, 30);
-        textArea.setBounds(100,100,400,400);
         textArea.setEditable(false);
-
-        this.add(textArea);
+        scrollPane = new JScrollPane(textArea);
+        scrollPane.setPreferredSize(new Dimension(570,450));
+        scrollPane.setBounds(5,100,570,450);
+        this.add(usernameLabel);
+        this.add(usernameField);
+        this.add(passwordLabel);
+        this.add(passwordField);
+        this.add(scrollPane);
         this.add(refreshBtn);
+        this.add(unreadLabel);
+        this.add(totalCountLabel);
         refreshBtn.addActionListener(this:: refreshAction);
 
         this.setSize(600,600);
         this.setLayout(null);
         this.setVisible(true);
+        setDefaultCloseOperation(EXIT_ON_CLOSE);
+
+    }
+
+    public void clearTextArea(){
+        textArea.setText(null);
+    }
+
+    public JTextArea getTextArea(){
+        return textArea;
+    }
+
+    public JLabel getUnreadLabel(){
+        return unreadLabel;
+    }
+
+    public JLabel getTotalCountLabel(){
+        return totalCountLabel;
     }
 
     public void refreshAction(ActionEvent e){
-        Email email = new Email("", "");
+
+
+        JScrollBar scroll = scrollPane.getVerticalScrollBar();
+        scroll.setValue(scroll.getMaximum());
+        username = usernameField.getText();
+        password = new String(passwordField.getPassword());
+        textArea.append("");
+        Email email = new Email(username, password, this);
         email.run();
     }
+
+
 
 
 
@@ -44,13 +102,60 @@ public class EmailReceiver extends JFrame {
 }
 
 class Email{
+    private JTextArea textArea;
+    private JLabel unreadLabel, totalCountLabel;
     private Properties properties;
     private String username, password;
+    private int unreadCount,totalCount;
 
-    public Email(String username, String password){
+    public Email(String username, String password, EmailReceiver emailReceiver){
         this.username = username;
         this.password = password;
+        this.textArea = emailReceiver.getTextArea();
+        this.unreadLabel = emailReceiver.getUnreadLabel();
+        this.totalCountLabel = emailReceiver.getTotalCountLabel();
     }
+
+    public void clearTextArea(){
+        textArea.setText(null);
+    }
+
+
+
+    public void print(Message email){
+        try {
+            textArea.append("\n");
+            textArea.append("---------------------------------------\n");
+            textArea.append("From: " + email.getFrom()[0]+"\n");
+            textArea.append("Subject: "+checkSubject((email.getSubject())+"\n"));
+            textArea.append("Date"+email.getSentDate()+"\n");
+            textArea.append("---------------------------------------");
+            textArea.append("\n");
+
+        } catch (MessagingException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public String checkSubject(String subject){
+        if(subject == null){
+            return "No subject";
+        } else {
+            return subject;
+        }
+
+    }
+
+    public void print(String msg){
+        textArea.append(msg +"\n");
+    }
+
+    public void setLabels(int unreadCount, int totalCount){
+        unreadLabel.setText("Unread messages: "+unreadCount);
+        totalCountLabel.setText("Total amount of messages: "+totalCount);
+    }
+
+
 
     public void run() {
         try {
@@ -68,22 +173,30 @@ class Email{
             emailStore.connect("smtp-mail.outlook.com",username, password);
 
             Folder emailFolder = emailStore.getFolder("INBOX");
+
+            unreadCount = emailFolder.getUnreadMessageCount();
+            totalCount = emailFolder.getMessageCount();
+            setLabels(unreadCount, totalCount);
+
+
             emailFolder.open(Folder.READ_ONLY);
-            //TODO - Sätt max antal
             Message[] messages = emailFolder.getMessages() ;
-
-
-            for(Message message : messages){
-
-                //TODO - Formatera utskrift
-                System.out.println(message.getSubject());
-
-
-
+            ArrayUtils.reverse(messages);
+            clearTextArea();
+            for(int i = 0; i < messages.length; i++ ){
+                if(i > 10){
+                    emailFolder.close();
+                    emailStore.close();
+                }
+                print(messages[i]);
             }
-        } catch (Exception e){
-            System.out.println(e);
 
+        } catch (AuthenticationFailedException e){
+            System.out.println(e);
+            print("Authentication failed.");
+            print("Wrong email or password.");
+        } catch (MessagingException me){
+            System.out.println(me);
         }
 
     }
