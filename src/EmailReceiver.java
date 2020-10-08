@@ -1,17 +1,10 @@
-import com.sun.mail.pop3.POP3Store;
 import org.apache.commons.lang3.ArrayUtils;
 
 import javax.mail.*;
-import javax.mail.internet.MimeMultipart;
 import javax.swing.*;
-import javax.swing.plaf.TextUI;
-import javax.swing.text.JTextComponent;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.io.IOException;
-import java.util.Collections;
 import java.util.Properties;
-import java.util.Arrays;
 
 
 public class EmailReceiver extends JFrame {
@@ -23,6 +16,8 @@ public class EmailReceiver extends JFrame {
     private JPasswordField passwordField;
     private String username, password;
 
+
+    //Konstruktor för klassen EmailReceiver - GUI
     public EmailReceiver(){
         this.setTitle("Email Recevier");
         textArea = new JTextArea();
@@ -64,51 +59,56 @@ public class EmailReceiver extends JFrame {
 
     }
 
+    // Metod som tömmer textArean på text
     public void clearTextArea(){
-        textArea.setText(null);
+        textArea.setText("");
     }
 
+    // Metod som returnerar textarean
     public JTextArea getTextArea(){
         return textArea;
     }
 
+    // Metod som returnerar unreadLabel
     public JLabel getUnreadLabel(){
         return unreadLabel;
     }
-
+    // Metod som returnerar totalCountLabel
     public JLabel getTotalCountLabel(){
         return totalCountLabel;
     }
 
-    public void refreshAction(ActionEvent e){
 
+    /* Metod som skapar en scroll för textarean
+    * samt häntar texten i username- och passwordfälten.
+    * Skapar sen ett nytt object av klassen EmailInbox
+    * */
+    public void refreshAction(ActionEvent e){
 
         JScrollBar scroll = scrollPane.getVerticalScrollBar();
         scroll.setValue(scroll.getMaximum());
         username = usernameField.getText();
         password = new String(passwordField.getPassword());
-        textArea.append("");
-        Email email = new Email(username, password, this);
-        email.run();
+        clearTextArea();
+        EmailInbox email = new EmailInbox(username, password, this);
+        email.getInbox();
     }
 
-
-
-
-
+    // ------------- MAIN ----------------------------
     public static void main(String[] args) {
         EmailReceiver emailReceiver = new EmailReceiver();
     }
+    // ------------- MAIN END ------------------------
 }
 
-class Email{
+class EmailInbox{
     private JTextArea textArea;
     private JLabel unreadLabel, totalCountLabel;
     private Properties properties;
     private String username, password;
     private int unreadCount,totalCount;
 
-    public Email(String username, String password, EmailReceiver emailReceiver){
+    public EmailInbox(String username, String password, EmailReceiver emailReceiver){
         this.username = username;
         this.password = password;
         this.textArea = emailReceiver.getTextArea();
@@ -157,7 +157,7 @@ class Email{
 
 
 
-    public void run() {
+    public void getInbox() {
         try {
             properties = new Properties();
             properties.put("mail.smtp.host", "smtp-mail.outlook.com");
@@ -184,9 +184,10 @@ class Email{
             ArrayUtils.reverse(messages);
             clearTextArea();
             for(int i = 0; i < messages.length; i++ ){
-                if(i > 10){
+                if(i >= 10){
                     emailFolder.close();
                     emailStore.close();
+                    break;
                 }
                 print(messages[i]);
             }
